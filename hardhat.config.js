@@ -8,6 +8,8 @@ const {
   POLYGON_PRIVATE_KEY,
   GOERLI_API_URL,
   GOERLI_PRIVATE_KEY,
+  SEPOLIA_API_URL,
+  SEPOLIA_PRIVATE_KEY,
   POLYGONSCAN,
 } = process.env;
 
@@ -21,6 +23,10 @@ module.exports = {
     polygon: {
       url: POLYGON_API_URL,
       accounts: [`0x${POLYGON_PRIVATE_KEY}`],
+    },
+    sepolia: {
+      url: SEPOLIA_API_URL,
+      accounts: [`0x${SEPOLIA_PRIVATE_KEY}`],
     },
   },
   etherscan: {
