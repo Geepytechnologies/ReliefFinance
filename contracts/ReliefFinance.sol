@@ -64,11 +64,67 @@ contract ReliefFinance {
         return allCampaigns;
     }
 
-    function getPaginatedCampaigns(uint256 start, uint256 limit)
+    function getAllCampaignsWithContibutorCount()
         public
         view
-        returns (Campaign[] memory)
+        returns (Campaign[] memory, uint256[] memory)
     {
+        uint256 totalCampaigns = allCampaigns.length;
+
+        uint256[] memory contributorCounts = new uint256[](totalCampaigns);
+
+        for (uint256 i = 0; i < totalCampaigns; i++) {
+            contributorCounts[i] = campaignContributors[allCampaigns[i].id]
+                .length;
+        }
+
+        return (allCampaigns, contributorCounts);
+    }
+
+    function getCampaignWithContributors(
+        uint256 _id
+    )
+        public
+        view
+        returns (Campaign memory campaign, address[] memory contributors)
+    {
+        Campaign storage currentCampaign = campaigns[_id];
+        address[] memory campaignContributors2 = campaignContributors[_id];
+
+        return (currentCampaign, campaignContributors2);
+    }
+
+    function getCampaignsByCreatorWithApprovalStatus(
+        address _creator
+    ) external view returns (Campaign[] memory, bool[] memory) {
+        uint256 count = 0;
+
+        for (uint256 i = 1; i <= campaignCount; i++) {
+            if (campaigns[i].creator == _creator) {
+                count++;
+            }
+        }
+
+        Campaign[] memory result = new Campaign[](count);
+        bool[] memory approvalStatuses = new bool[](count);
+
+        uint256 index = 0;
+
+        for (uint256 i = 1; i <= campaignCount; i++) {
+            if (campaigns[i].creator == _creator) {
+                result[index] = campaigns[i];
+                approvalStatuses[index] = isApproved(i);
+                index++;
+            }
+        }
+
+        return (result, approvalStatuses);
+    }
+
+    function getPaginatedCampaigns(
+        uint256 start,
+        uint256 limit
+    ) public view returns (Campaign[] memory) {
         uint256 end = start + limit;
         if (end > allCampaigns.length) {
             end = allCampaigns.length;
@@ -86,30 +142,33 @@ contract ReliefFinance {
     }
 
     function getLatestCampaigns() public view returns (Campaign[] memory) {
-    uint256 count = 0;
-    uint256 approvedCount = 0;
+        uint256 count = 0;
+        uint256 approvedCount = 0;
 
-    for (uint256 i = 1; i <= campaignCount; i++) {
-        if (isApproved(i)) {
-            approvedCount++;
-        }
-    }
-
-    uint256 campaignLimit = approvedCount < 10 ? approvedCount : 10;
-    Campaign[] memory result = new Campaign[](campaignLimit);
-
-    if (approvedCount > 0) {
-        for (uint256 i = campaignCount; i > 0 && count < campaignLimit; i--) {
+        for (uint256 i = 1; i <= campaignCount; i++) {
             if (isApproved(i)) {
-                result[count] = campaigns[i]; 
-                count++;
+                approvedCount++;
             }
         }
+
+        uint256 campaignLimit = approvedCount < 10 ? approvedCount : 10;
+        Campaign[] memory result = new Campaign[](campaignLimit);
+
+        if (approvedCount > 0) {
+            for (
+                uint256 i = campaignCount;
+                i > 0 && count < campaignLimit;
+                i--
+            ) {
+                if (isApproved(i)) {
+                    result[count] = campaigns[i];
+                    count++;
+                }
+            }
+        }
+
+        return result;
     }
-
-    return result;
-}
-
 
     function createCampaign(
         string calldata _title,
@@ -144,9 +203,9 @@ contract ReliefFinance {
         });
 
         campaigns[campaignCount] = newCampaign;
-        allCampaigns.push(newCampaign); 
+        allCampaigns.push(newCampaign);
 
-    emit CampaignCreated(
+        emit CampaignCreated(
             newCampaign.id,
             newCampaign.creator,
             newCampaign.title,
@@ -167,9 +226,11 @@ contract ReliefFinance {
         return false;
     }
 
-    function approveCampaign(uint256 _id)
+    function approveCampaign(
+        uint256 _id
+    )
         external
-        onlyOwner
+        // onlyOwner
         campaignExists(_id)
     {
         require(!isApproved(_id), "Campaign already approved");
@@ -177,12 +238,9 @@ contract ReliefFinance {
         approvedCampaigns.push(_id);
     }
 
-    function contribute(uint256 _id)
-        external
-        payable
-        campaignExists(_id)
-        activeCampaign(_id)
-    {
+    function contribute(
+        uint256 _id
+    ) external payable campaignExists(_id) activeCampaign(_id) {
         require(msg.value > 0, "Contribution must be greater than 0");
 
         Campaign storage campaign = campaigns[_id];
@@ -199,11 +257,9 @@ contract ReliefFinance {
         emit ContributionMade(_id, msg.sender, msg.value);
     }
 
-    function completeCampaign(uint256 _id)
-        external
-        onlyOwner
-        campaignExists(_id)
-    {
+    function completeCampaign(
+        uint256 _id
+    ) external onlyOwner campaignExists(_id) {
         Campaign storage campaign = campaigns[_id];
         require(!campaign.isCompleted, "Campaign already completed");
         require(
@@ -217,11 +273,9 @@ contract ReliefFinance {
         emit CampaignCompleted(_id, campaign.amountRaised);
     }
 
-    function getCampaignsByCreator(address _creator)
-        external
-        view
-        returns (Campaign[] memory)
-    {
+    function getCampaignsByCreator(
+        address _creator
+    ) external view returns (Campaign[] memory) {
         uint256 count = 0;
 
         for (uint256 i = 1; i <= campaignCount; i++) {
@@ -261,16 +315,15 @@ contract ReliefFinance {
         payable(msg.sender).transfer(amount);
     }
 
-    function getContributors(uint256 _id)
-        external
-        view
-        campaignExists(_id)
-        returns (address[] memory)
-    {
+    function getContributors(
+        uint256 _id
+    ) external view campaignExists(_id) returns (address[] memory) {
         return campaignContributors[_id];
     }
 
-    function getCampaign(uint256 _id)
+    function getCampaign(
+        uint256 _id
+    )
         public
         view
         returns (
